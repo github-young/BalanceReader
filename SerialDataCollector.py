@@ -1,63 +1,83 @@
+import re
 import sys
 import serial
 import serial.tools.list_ports
-import datetime
+from datetime import datetime
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QPalette
-from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QComboBox, QTextEdit, QPushButton, QHBoxLayout, QVBoxLayout, QFileDialog, QSpinBox
+from PyQt6.QtGui import QPalette, QIcon
+from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QComboBox, QTextEdit, QPushButton, QHBoxLayout, \
+    QVBoxLayout, QFileDialog, QSpinBox, QProgressBar
 
 
-class SerialReader(QWidget):
+class BalanceReader(QWidget):
     def __init__(self):
         super().__init__()
+        self.time_passed_in_second = 0
+        self.interval_in_second = 0
+        self.total_time_in_second = 0
+        self.filename = ""
+
+        self.setWindowIcon(QIcon('icon.ico'))
         self.initUI()
 
     def initUI(self):
         # Initialize the window and layout
-        self.setGeometry(100, 100, 500, 500)
-        self.setWindowTitle('Serial Reader')
+        self.resize(350, 400)
+        self.setWindowTitle('Balance Reader')
         vbox = QVBoxLayout()
         hbox1 = QHBoxLayout()
         hbox2 = QHBoxLayout()
         hbox3 = QHBoxLayout()
         hbox4 = QHBoxLayout()
         hbox5 = QHBoxLayout()
+        hbox6 = QHBoxLayout()
 
         # Create the widgets
+        suffix_width = 20
         self.port_label = QLabel('Port:')
         self.port_combo = QComboBox()
         self.port_suffix = QLabel('s')
-        self.port_suffix.setFixedWidth(10)
-        self.port_suffix.setPalette(QPalette(Qt.GlobalColor.transparent)) # set the label color to transparent
+        self.port_suffix.setFixedWidth(suffix_width)
+        self.port_suffix.setPalette(QPalette(Qt.GlobalColor.transparent))  # set the label color to transparent
         self.baud_label = QLabel('Baud Rate:')
         self.baud_combo = QComboBox()
         self.baud_suffix = QLabel('s')
-        self.baud_suffix.setFixedWidth(10)
-        self.baud_suffix.setPalette(QPalette(Qt.GlobalColor.transparent)) # set the label color to transparent
+        self.baud_suffix.setFixedWidth(suffix_width)
+        self.baud_suffix.setPalette(QPalette(Qt.GlobalColor.transparent))  # set the label color to transparent
         self.parity_label = QLabel('Parity:')
         self.parity_combo = QComboBox()
         self.parity_suffix = QLabel('s')
-        self.parity_suffix.setFixedWidth(10)
-        self.parity_suffix.setPalette(QPalette(Qt.GlobalColor.transparent)) # set the label color to transparent
+        self.parity_suffix.setFixedWidth(suffix_width)
+        self.parity_suffix.setPalette(QPalette(Qt.GlobalColor.transparent))  # set the label color to transparent
         self.interval_label = QLabel('Interval:')
         self.interval_spin = QSpinBox()
         self.interval_suffix = QLabel('s')
-        self.interval_suffix.setFixedWidth(10)
-        self.start_button = QPushButton('Start Reading')
-        self.stop_button = QPushButton('Stop Reading')
-        self.save_button = QPushButton('Save Data')
+        self.interval_suffix.setFixedWidth(suffix_width)
+        self.duration_label = QLabel('Duration:')
+        self.duration_spin = QSpinBox()
+        self.duration_suffix = QLabel('min')
+        self.duration_suffix.setFixedWidth(suffix_width)
+        self.save_button = QPushButton('Set save path')
+        self.start_button = QPushButton('Start')
+        self.stop_button = QPushButton('Stop')
         self.text_edit = QTextEdit()
+        self.text_edit.append("{}, {}, {}".format("Time/s", "Mass(g)", "Timestamp"))
+        self.text_edit.setReadOnly(True)
+        self.pbar = QProgressBar(self)
 
         # Add options to the combo boxes
         self.port_combo.addItems(self.get_serial_ports())
+        self.port_combo.setCurrentIndex(self.port_combo.count() - 1)
         self.baud_combo.addItems(['9600', '19200', '38400', '57600', '115200'])
-        self.parity_combo.addItems(['S', 'N', 'E', 'O', 'M'])
+        self.parity_combo.addItems(['N', 'S', 'E', 'O', 'M'])
 
         # Set default values for the combo boxes and spin box
         self.baud_combo.setCurrentText('9600')
-        self.parity_combo.setCurrentText('S')
-        self.interval_spin.setRange(1, 60)
+        self.parity_combo.setCurrentText('N')
+        self.interval_spin.setRange(1, 3600)
         self.interval_spin.setValue(1)
+        self.duration_spin.setRange(1, 10080)
+        self.duration_spin.setValue(60)
 
         # Add the widgets to the layout
         hbox1.addWidget(self.port_label)
@@ -72,24 +92,29 @@ class SerialReader(QWidget):
         hbox4.addWidget(self.interval_label)
         hbox4.addWidget(self.interval_spin)
         hbox4.addWidget(self.interval_suffix)
+        hbox6.addWidget(self.duration_label)
+        hbox6.addWidget(self.duration_spin)
+        hbox6.addWidget(self.duration_suffix)
+        hbox5.addWidget(self.save_button)
         hbox5.addWidget(self.start_button)
         hbox5.addWidget(self.stop_button)
-        hbox5.addWidget(self.save_button)
         vbox.addLayout(hbox1)
         vbox.addLayout(hbox2)
         vbox.addLayout(hbox3)
         vbox.addLayout(hbox4)
+        vbox.addLayout(hbox6)
         vbox.addLayout(hbox5)
         vbox.addWidget(self.text_edit)
+        vbox.addWidget(self.pbar)
 
         # Set the layout for the window
-        vbox.addStretch()
+        # vbox.addStretch()
         self.setLayout(vbox)
 
         # Connect the signals to the slots
+        self.save_button.clicked.connect(self.set_save_path)
         self.start_button.clicked.connect(self.start_reading)
         self.stop_button.clicked.connect(self.stop_reading)
-        self.save_button.clicked.connect(self.save_data)
 
         # Initialize the timer
         self.timer = QTimer()
@@ -112,6 +137,9 @@ class SerialReader(QWidget):
         parity = self.parity_combo.currentText()
         interval = self.interval_spin.value() * 1000
 
+        self.interval_in_second = int(self.interval_spin.value())
+        self.total_time_in_second = int(self.duration_spin.value() * 60 / self.interval_in_second)
+
         # Initialize the serial connection
         self.ser = serial.Serial(port, baud, parity=parity, timeout=0)
 
@@ -122,33 +150,59 @@ class SerialReader(QWidget):
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(True)
 
+        # Toggle Edit access
+        self.interval_spin.setReadOnly(True)
+        self.duration_spin.setReadOnly(True)
+
     def stop_reading(self):
         # Stops reading data from the serial port
         self.timer.stop()
         self.ser.close()
 
+        # Save to file
+        self.save_data()
+
+        # Clear progress bar
+        self.pbar.setValue(0)
+
         # Disable stop button and enable start button
         self.stop_button.setEnabled(False)
         self.start_button.setEnabled(True)
 
+        # Toggle Edit access
+        self.interval_spin.setReadOnly(False)
+        self.duration_spin.setReadOnly(False)
+
     def read_data(self):
         # Reads data from the serial port and displays it in the text edit box
         try:
-            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            line = f'{timestamp}: {self.ser.readline().decode("utf-8").strip()}'
-            self.text_edit.append(line)
+            ser_text_raw: str = self.ser.readline().decode("utf-8")
+            timestamp = datetime.utcnow().strftime('%Y%m%d-%H:%M:%S.%f')[:-3]
+            ser_text = re.sub("[\r\nUS ]", '', ser_text_raw).split("g")[2]
+            self.time_passed_in_second += self.interval_in_second
+            if self.time_passed_in_second <= self.total_time_in_second:
+                line = f'{self.time_passed_in_second:<10}, {ser_text:<10}, {timestamp}'
+                self.text_edit.append(line)
+                progress = int(100 * self.time_passed_in_second / self.total_time_in_second)
+                self.pbar.setValue(progress)
+            else:
+                self.stop_button.click()
         except serial.SerialException:
-            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            timestamp = datetime.utcnow().strftime('%Y%m%d-%H:%M:%S.%f')[:-3]
             self.text_edit.append(f'{timestamp}: Error reading data from serial port')
+
+    def set_save_path(self):
+        # Set save path for output CSV file
+        self.filename, _ = QFileDialog.getSaveFileName(self, 'Save Data', '', 'CSV Files (*.csv)')
 
     def save_data(self):
         # Saves the data in the text edit box to a file
-        filename, _ = QFileDialog.getSaveFileName(self, 'Save Data', '', 'Text Files (*.txt)')
-        if filename:
-            with open(filename, 'w') as f:
+        if self.filename:
+            with open(self.filename, 'w') as f:
                 f.write(self.text_edit.toPlainText())
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    serial_reader = SerialReader()
+    serial_reader = BalanceReader()
     sys.exit(app.exec())
