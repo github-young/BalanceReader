@@ -6,9 +6,9 @@ from datetime import datetime
 
 import serial
 import serial.tools.list_ports
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QPalette, QIcon
-from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QComboBox, QTextEdit, QPushButton, QHBoxLayout, \
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QPalette, QIcon
+from PySide6.QtWidgets import QApplication, QWidget, QLabel, QComboBox, QTextEdit, QPushButton, QHBoxLayout, \
     QVBoxLayout, QFileDialog, QSpinBox, QProgressBar
 
 my_app_id = 'HKUST.LiG.BalanceReader.v0.1'  # arbitrary string
