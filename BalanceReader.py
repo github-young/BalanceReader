@@ -1,12 +1,18 @@
+import ctypes
 import re
 import sys
+import time
+from datetime import datetime
+
 import serial
 import serial.tools.list_ports
-from datetime import datetime
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QPalette, QIcon
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QComboBox, QTextEdit, QPushButton, QHBoxLayout, \
     QVBoxLayout, QFileDialog, QSpinBox, QProgressBar
+
+my_app_id = 'HKUST.LiG.BalanceReader.v0.1'  # arbitrary string
+ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(my_app_id)
 
 
 class BalanceReader(QWidget):
@@ -15,6 +21,8 @@ class BalanceReader(QWidget):
         self.time_passed_in_second = 0
         self.interval_in_second = 0
         self.total_time_in_second = 0
+        self.last_time = time.time()
+
         self.filename = ""
 
         self.setWindowIcon(QIcon('icon.ico'))
@@ -22,7 +30,7 @@ class BalanceReader(QWidget):
 
     def initUI(self):
         # Initialize the window and layout
-        self.resize(350, 400)
+        self.resize(400, 400)
         self.setWindowTitle('Balance Reader')
         vbox = QVBoxLayout()
         hbox1 = QHBoxLayout()
@@ -61,8 +69,9 @@ class BalanceReader(QWidget):
         self.start_button = QPushButton('Start')
         self.stop_button = QPushButton('Stop')
         self.text_edit = QTextEdit()
-        self.text_edit.append("{}, {}, {}".format("Time/s", "Mass(g)", "Timestamp"))
+        self.text_edit.append("{}, {}, {}".format("Time/s", "Mass/g", "Timestamp"))
         self.text_edit.setReadOnly(True)
+        self.line_label = QLabel("File saved as:")
         self.pbar = QProgressBar(self)
 
         # Add options to the combo boxes
@@ -105,6 +114,7 @@ class BalanceReader(QWidget):
         vbox.addLayout(hbox6)
         vbox.addLayout(hbox5)
         vbox.addWidget(self.text_edit)
+        vbox.addWidget(self.line_label)
         vbox.addWidget(self.pbar)
 
         # Set the layout for the window
@@ -118,7 +128,7 @@ class BalanceReader(QWidget):
 
         # Initialize the timer
         self.timer = QTimer()
-        self.timer.timeout.connect(self.read_data)
+        self.timer.timeout.connect(self.update_line_edit)
 
         # Show the window
         self.show()
@@ -144,7 +154,8 @@ class BalanceReader(QWidget):
         self.ser = serial.Serial(port, baud, parity=parity, timeout=0)
 
         # Start the timer to read data at the specified interval
-        self.timer.start(interval)
+        self.timer.start(5)
+        self.last_time = time.time()
 
         # Disable start button and enable stop button
         self.start_button.setEnabled(False)
@@ -173,11 +184,18 @@ class BalanceReader(QWidget):
         self.interval_spin.setReadOnly(False)
         self.duration_spin.setReadOnly(False)
 
+    def update_line_edit(self):
+        current_time = time.time()
+        if current_time >= self.last_time + self.interval_in_second:
+            self.read_data()
+            # timestamp = datetime.now().strftime('%Y%m%d-%H:%M:%S.%f')[:-3]
+            self.last_time += self.interval_in_second
+
     def read_data(self):
         # Reads data from the serial port and displays it in the text edit box
         try:
             ser_text_raw: str = self.ser.readline().decode("utf-8")
-            timestamp = datetime.utcnow().strftime('%Y%m%d-%H:%M:%S.%f')[:-3]
+            timestamp = datetime.now().strftime('%Y%m%d-%H:%M:%S.%f')[:-3]
             ser_text = re.sub("[\r\nUS ]", '', ser_text_raw).split("g")[2]
             self.time_passed_in_second += self.interval_in_second
             if self.time_passed_in_second <= self.total_time_in_second:
@@ -188,18 +206,19 @@ class BalanceReader(QWidget):
             else:
                 self.stop_button.click()
         except serial.SerialException:
-            timestamp = datetime.utcnow().strftime('%Y%m%d-%H:%M:%S.%f')[:-3]
+            timestamp = datetime.now().strftime('%Y%m%d-%H:%M:%S.%f')[:-3]
             self.text_edit.append(f'{timestamp}: Error reading data from serial port')
 
     def set_save_path(self):
         # Set save path for output CSV file
         self.filename, _ = QFileDialog.getSaveFileName(self, 'Save Data', '', 'CSV Files (*.csv)')
+        self.line_label.setText(f"File saved as: {self.filename}")
 
     def save_data(self):
         # Saves the data in the text edit box to a file
         if self.filename:
             with open(self.filename, 'w') as f:
-                f.write(self.text_edit.toPlainText())
+                f.write(self.text_edit.toPlainText().replace(" ", ""))
 
 
 if __name__ == '__main__':
