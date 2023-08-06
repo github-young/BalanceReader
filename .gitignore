@@ -1,6 +1,9 @@
 .idea/
 venv/
 __pycache__/
+BalanceReader.dist/
+BalanceReader.build/
+BalanceReader.onefile-build/
 
 *.csv
 *.exe
