@@ -1,1 +1,0 @@
-python -m nuitka --onefile --enable-plugin=pyside6 --windows-icon-from-ico=icon.ico --disable-console BalanceReader.py

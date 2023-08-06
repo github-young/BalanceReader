@@ -11,8 +11,9 @@ from PySide6.QtGui import QPalette, QIcon
 from PySide6.QtWidgets import QApplication, QWidget, QLabel, QComboBox, QTextEdit, QPushButton, QHBoxLayout, \
     QVBoxLayout, QFileDialog, QSpinBox, QProgressBar
 
-my_app_id = 'HKUST.LiG.BalanceReader.v0.1'  # arbitrary string
+my_app_id = 'HKUST.LiG.BalanceReader.v0.0.2'  # arbitrary string
 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(my_app_id)
+import resources
 
 
 class BalanceReader(QWidget):
@@ -25,7 +26,8 @@ class BalanceReader(QWidget):
 
         self.filename = ""
 
-        self.setWindowIcon(QIcon('icon.ico'))
+        icon = QIcon(":/icons/icon.ico")
+        self.setWindowIcon(icon)
         self.initUI()
 
     def initUI(self):
