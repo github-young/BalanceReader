@@ -11,8 +11,11 @@ from PySide6.QtGui import QPalette, QIcon
 from PySide6.QtWidgets import QApplication, QWidget, QLabel, QComboBox, QTextEdit, QPushButton, QHBoxLayout, \
     QVBoxLayout, QFileDialog, QSpinBox, QProgressBar
 
-my_app_id = 'HKUST.LiG.BalanceReader.v0.0.2'  # arbitrary string
-# ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(my_app_id)
+my_app_id = 'HKUST.LiG.BalanceReader.v0.0.3'  # arbitrary string
+try:
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(my_app_id)
+except Exception as e:
+    pass
 import resources
 
 
