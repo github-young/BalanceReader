@@ -192,6 +192,7 @@ class BalanceReader(QWidget):
         # Disable stop button and enable start button
         self.stop_button.setEnabled(False)
         self.start_button.setEnabled(True)
+        self.exit_button.setEnabled(True)
 
         # Toggle Edit access
         self.interval_spin.setReadOnly(False)
