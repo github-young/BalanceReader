@@ -7,3 +7,6 @@ BalanceReader.onefile-build/
 
 *.csv
 *.exe
+*.bin
+
+resources.py

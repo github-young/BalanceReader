@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QApplication, QWidget, QLabel, QComboBox, QTextEdi
     QVBoxLayout, QFileDialog, QSpinBox, QProgressBar
 
 my_app_id = 'HKUST.LiG.BalanceReader.v0.0.2'  # arbitrary string
-ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(my_app_id)
+# ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(my_app_id)
 import resources
 
 
@@ -70,6 +70,8 @@ class BalanceReader(QWidget):
         self.save_button = QPushButton('Set save path')
         self.start_button = QPushButton('Start')
         self.stop_button = QPushButton('Stop')
+        self.stop_button.setEnabled(False)
+        self.exit_button = QPushButton('Exit')
         self.text_edit = QTextEdit()
         self.text_edit.append("{}, {}, {}".format("Time/s", "Mass/g", "Timestamp"))
         self.text_edit.setReadOnly(True)
@@ -109,6 +111,7 @@ class BalanceReader(QWidget):
         hbox5.addWidget(self.save_button)
         hbox5.addWidget(self.start_button)
         hbox5.addWidget(self.stop_button)
+        hbox5.addWidget(self.exit_button)
         vbox.addLayout(hbox1)
         vbox.addLayout(hbox2)
         vbox.addLayout(hbox3)
@@ -127,6 +130,7 @@ class BalanceReader(QWidget):
         self.save_button.clicked.connect(self.set_save_path)
         self.start_button.clicked.connect(self.start_reading)
         self.stop_button.clicked.connect(self.stop_reading)
+        self.exit_button.clicked.connect(self.close)
 
         # Initialize the timer
         self.timer = QTimer()
@@ -153,19 +157,23 @@ class BalanceReader(QWidget):
         self.total_time_in_second = int(self.duration_spin.value() * 60 / self.interval_in_second)
 
         # Initialize the serial connection
-        self.ser = serial.Serial(port, baud, parity=parity, timeout=0)
+        try:
+            self.ser = serial.Serial(port, baud, parity=parity, timeout=0)
 
-        # Start the timer to read data at the specified interval
-        self.timer.start(5)
-        self.last_time = time.time()
+            # Start the timer to read data at the specified interval
+            self.timer.start(5)
+            self.last_time = time.time()
 
-        # Disable start button and enable stop button
-        self.start_button.setEnabled(False)
-        self.stop_button.setEnabled(True)
+            # Disable start button and enable stop button
+            self.start_button.setEnabled(False)
+            self.stop_button.setEnabled(True)
+            self.exit_button.setEnabled(False)
 
-        # Toggle Edit access
-        self.interval_spin.setReadOnly(True)
-        self.duration_spin.setReadOnly(True)
+            # Toggle Edit access
+            self.interval_spin.setReadOnly(True)
+            self.duration_spin.setReadOnly(True)
+        except IOError as e:
+            self.text_edit.append("Error opening serial port!")
 
     def stop_reading(self):
         # Stops reading data from the serial port
