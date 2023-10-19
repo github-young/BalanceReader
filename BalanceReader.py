@@ -11,7 +11,7 @@ from PySide6.QtGui import QPalette, QIcon
 from PySide6.QtWidgets import QApplication, QWidget, QLabel, QComboBox, QTextEdit, QPushButton, QHBoxLayout, \
     QVBoxLayout, QFileDialog, QSpinBox, QProgressBar
 
-my_app_id = 'HKUST.LiG.BalanceReader.v0.0.3'  # arbitrary string
+my_app_id = 'HKUST.LiG.BalanceReader.v0.0.4'  # arbitrary string
 try:
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(my_app_id)
 except Exception as e:
@@ -91,7 +91,7 @@ class BalanceReader(QWidget):
         self.baud_combo.setCurrentText('9600')
         self.parity_combo.setCurrentText('N')
         self.interval_spin.setRange(1, 3600)
-        self.interval_spin.setValue(1)
+        self.interval_spin.setValue(2)
         self.duration_spin.setRange(1, 10080)
         self.duration_spin.setValue(60)
 
@@ -154,10 +154,10 @@ class BalanceReader(QWidget):
         port = self.port_combo.currentText()
         baud = int(self.baud_combo.currentText())
         parity = self.parity_combo.currentText()
-        interval = self.interval_spin.value() * 1000
+        # interval = self.interval_spin.value() * 1000
 
         self.interval_in_second = int(self.interval_spin.value())
-        self.total_time_in_second = int(self.duration_spin.value() * 60 / self.interval_in_second)
+        self.total_time_in_second = int(self.duration_spin.value() * 60)
 
         # Initialize the serial connection
         try:
@@ -208,10 +208,21 @@ class BalanceReader(QWidget):
     def read_data(self):
         # Reads data from the serial port and displays it in the text edit box
         try:
+            if not self.ser.isOpen():
+                # print(f"before: {self.ser.isOpen()}")
+                self.ser.open()
+                # print(f"after: {self.ser.isOpen()}")
             ser_text_raw: str = self.ser.readline().decode("utf-8")
             timestamp = datetime.now().strftime('%Y%m%d-%H:%M:%S.%f')[:-3]
-            ser_text = re.sub("[\r\nUS ]", '', ser_text_raw).split("g")[2]
-            self.time_passed_in_second += self.interval_in_second
+            # ser_text_clean = "g".join(re.sub("[\r\nUS ]", '', ser_text_raw).split("g"))
+            # print(f"{timestamp}, , {ser_text_clean}")
+            try:
+                ser_text = re.sub("[\r\nUS ]", '', ser_text_raw).split("g")[2]
+                # print(f"{timestamp}, {ser_text}")
+            except Exception as e:
+                # ser_text = "".join(re.sub("[\r\nUS ]", '', ser_text_raw).split("g"))
+                ser_text = "ERROR"
+                # print(f"[-] Error: {str(e)}. Ser open: {self.ser.isOpen()}")
             if self.time_passed_in_second <= self.total_time_in_second:
                 line = f'{self.time_passed_in_second:<10}, {ser_text:<10}, {timestamp}'
                 self.text_edit.append(line)
@@ -221,7 +232,14 @@ class BalanceReader(QWidget):
                 self.stop_button.click()
         except serial.SerialException:
             timestamp = datetime.now().strftime('%Y%m%d-%H:%M:%S.%f')[:-3]
-            self.text_edit.append(f'{timestamp}: Error reading data from serial port')
+            self.text_edit.append(f'[-] {timestamp}: Error reading data from serial port')
+            # print("[-] %s, %s" % (timestamp, self.ser.isOpen()))
+            self.ser.close()
+            # print("[-] %s, %s" % (timestamp, self.ser.isOpen()))
+            self.text_edit.append(f'[-] {timestamp}: Serial port open? {self.ser.isOpen()}')
+        finally:
+            self.time_passed_in_second += self.interval_in_second
+
 
     def set_save_path(self):
         # Set save path for output CSV file
