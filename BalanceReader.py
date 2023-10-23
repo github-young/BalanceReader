@@ -202,44 +202,37 @@ class BalanceReader(QWidget):
         current_time = time.time()
         if current_time >= self.last_time + self.interval_in_second:
             self.read_data()
-            # timestamp = datetime.now().strftime('%Y%m%d-%H:%M:%S.%f')[:-3]
             self.last_time += self.interval_in_second
 
     def read_data(self):
         # Reads data from the serial port and displays it in the text edit box
+        timestamp = datetime.now().strftime('%Y%m%d-%H:%M:%S.%f')[:-3]
         try:
             if not self.ser.isOpen():
-                # print(f"before: {self.ser.isOpen()}")
                 self.ser.open()
-                # print(f"after: {self.ser.isOpen()}")
             ser_text_raw: str = self.ser.readline().decode("utf-8")
-            timestamp = datetime.now().strftime('%Y%m%d-%H:%M:%S.%f')[:-3]
-            # ser_text_clean = "g".join(re.sub("[\r\nUS ]", '', ser_text_raw).split("g"))
-            # print(f"{timestamp}, , {ser_text_clean}")
             try:
                 ser_text = re.sub("[\r\nUS ]", '', ser_text_raw).split("g")[2]
-                # print(f"{timestamp}, {ser_text}")
             except Exception as e:
-                # ser_text = "".join(re.sub("[\r\nUS ]", '', ser_text_raw).split("g"))
-                ser_text = "ERROR"
-                # print(f"[-] Error: {str(e)}. Ser open: {self.ser.isOpen()}")
+                ser_text = "NaN"
             if self.time_passed_in_second <= self.total_time_in_second:
                 line = f'{self.time_passed_in_second:<10}, {ser_text:<10}, {timestamp}'
-                self.text_edit.append(line)
-                progress = int(100 * self.time_passed_in_second / self.total_time_in_second)
-                self.pbar.setValue(progress)
+                if ser_text != "NaN":
+                    self.text_edit.append(line)
             else:
                 self.stop_button.click()
         except serial.SerialException:
-            timestamp = datetime.now().strftime('%Y%m%d-%H:%M:%S.%f')[:-3]
-            self.text_edit.append(f'[-] {timestamp}: Error reading data from serial port')
-            # print("[-] %s, %s" % (timestamp, self.ser.isOpen()))
             self.ser.close()
-            # print("[-] %s, %s" % (timestamp, self.ser.isOpen()))
-            self.text_edit.append(f'[-] {timestamp}: Serial port open? {self.ser.isOpen()}')
-        finally:
-            self.time_passed_in_second += self.interval_in_second
-
+            ser_text = "ERROR"
+            if self.time_passed_in_second <= self.total_time_in_second:
+                line = f'{self.time_passed_in_second:<10}, {ser_text:<10}, {timestamp}'
+                if ser_text != "ERROR":
+                    self.text_edit.append(line)
+            else:
+                self.stop_button.click()
+        self.time_passed_in_second += self.interval_in_second
+        progress = int(100 * self.time_passed_in_second / self.total_time_in_second)
+        self.pbar.setValue(progress)
 
     def set_save_path(self):
         # Set save path for output CSV file
