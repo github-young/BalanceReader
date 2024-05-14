@@ -211,6 +211,7 @@ class BalanceReader(QWidget):
             if not self.ser.isOpen():
                 self.ser.open()
             ser_text_raw: str = self.ser.readline().decode("utf-8")
+            print("[+!]" + ser_text_raw)
             try:
                 ser_text = re.sub("[\r\nUS ]", '', ser_text_raw).split("g")[2]
             except Exception as e:
