@@ -92,7 +92,6 @@ def plot_core(filename, t, mass, eta, window_start_index, window_end_index, fig,
         Path(os.path.basename(filename)).stem,
         eta,
     )
-    # label_str += r"$\unit{g.m^{-2}.h^{-1}}$"
     ax.plot(
         t,
         mass,
@@ -111,6 +110,7 @@ def plot_shell(
     eta_list,
     window_start_index_list,
     window_end_index_list,
+    t_max
 ):
     fig, ax = pl.subplots(figsize=[12, 9])
     # plot single or multiple lines
@@ -124,12 +124,14 @@ def plot_shell(
     ):
         plot_core(filename, t, mass, eta, window_start_index, window_end_index, fig, ax)
     # plot single or multiple lines
-    fontsize_small = 18
+    fontsize_small = 16
     fontsize_large = 24
     pl.ticklabel_format(useOffset=False)
-    pl.xticks(np.arange(0, t[-1] + 60, 600), fontsize=fontsize_small)
+    xticks = np.arange(0, t_max + 60, 600)
+    xticks_label = [str(int(i)) for i in xticks/60]
+    pl.xticks(xticks, xticks_label, fontsize=fontsize_small)
     pl.yticks(fontsize=fontsize_small)
-    pl.xlabel("Time / s", fontsize=fontsize_large)
+    pl.xlabel("Time / min", fontsize=fontsize_large)
     pl.ylabel("Mass change / g", fontsize=fontsize_large)
     pl.legend(fontsize=fontsize_small)
     title_str = f"CuO/AA-Cellulose-AA hydrogel/Al; time step = {t[1]-t[0]} s"
@@ -140,11 +142,12 @@ def plot_shell(
 
 
 def main_run(filepaths):
-    print("[+] Plot:\n"+"\n".join(filepaths))
+    print(f"[+] Total lines: {len(filepaths)} Plot:\n"+"\n".join(filepaths))
     t_list = []
     mass_list = []
     eta_list = []
-    wsi_list = np.array([-5, -5, -14]) * minute
+    # wsi_list = np.array([-5, -5, -14]) * minute
+    wsi_list = np.ones(len(filepaths))*(50*minute)
     window_start_index_list = []
     window_end_index_list = []
     for filename, wsi in zip(filepaths, wsi_list):
@@ -155,6 +158,7 @@ def main_run(filepaths):
         eta_list += [eta]
         window_start_index_list += [window_start_index]
         window_end_index_list += [window_end_index]
+    t_max = max([max(t) for t in t_list])
     plot_shell(
         filepaths,
         t_list,
@@ -162,10 +166,10 @@ def main_run(filepaths):
         eta_list,
         window_start_index_list,
         window_end_index_list,
+        t_max
     )
     return 0
 
-
-WDIR = os.path.relpath("./CuO")
+WDIR = os.path.relpath("./LIG_PI")
 filepaths = get_CSV_filepath_rel(WDIR)
-main_run(filepaths[:-1])
+main_run(filepaths)
